@@ -309,6 +309,9 @@ export default class TransactionsStore {
         this.payment_hash =
             result.payment_hash && typeof result.payment_hash === 'string'
                 ? result.payment_hash
+                : result.payment_hash.data &&
+                  result.payment_hash.type === 'Buffer'
+                ? Buffer.from(result.payment_hash.data).toString('hex')
                 : null;
 
         const implementation = this.settingsStore.implementation;

@@ -40,10 +40,27 @@ export default class PaymentView extends React.Component<PaymentProps> {
         storedNotes: ''
     };
 
+    getPaymentHash(payment: Payment): string | null {
+        if (typeof payment.payment_hash === 'string') {
+            return payment.payment_hash;
+        }
+        if (
+            payment.payment_hash.data &&
+            payment.payment_hash.type === 'Buffer'
+        ) {
+            return Buffer.from(payment.payment_hash.data).toString('hex');
+        }
+        return null;
+    }
+
     async componentDidMount() {
         const { navigation, LnurlPayStore } = this.props;
         const payment: Payment = navigation.getParam('payment', null);
-        const lnurlpaytx = await LnurlPayStore.load(payment.payment_hash);
+        const paymentHash = this.getPaymentHash(payment);
+        const lnurlpaytx = paymentHash
+            ? await LnurlPayStore.load(paymentHash)
+            : null;
+
         if (lnurlpaytx) {
             this.setState({ lnurlpaytx });
         }
@@ -80,6 +97,7 @@ export default class PaymentView extends React.Component<PaymentProps> {
             getMemo,
             isInTransit
         } = payment;
+        const paymentHash = this.getPaymentHash(payment);
         const date = getDisplayTime;
         const noteKey =
             typeof payment_hash === 'string'
@@ -173,12 +191,12 @@ export default class PaymentView extends React.Component<PaymentProps> {
                             />
                         )}
 
-                        {typeof payment_hash === 'string' && (
+                        {paymentHash && (
                             <KeyValue
                                 keyValue={localeString(
                                     'views.Payment.paymentHash'
                                 )}
-                                value={payment_hash}
+                                value={paymentHash}
                                 sensitive
                             />
                         )}
