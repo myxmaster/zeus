@@ -36,6 +36,7 @@ interface TextInputProps {
     ref?: React.Ref<TextInputRN>;
     error?: boolean;
     onFocus?: any;
+    onBlur?: any;
 }
 
 const TextInput = React.forwardRef<TextInputRN, TextInputProps>(
@@ -61,7 +62,9 @@ const TextInput = React.forwardRef<TextInputRN, TextInputProps>(
             toggleUnits,
             onPressIn,
             right,
-            error
+            error,
+            onFocus,
+            onBlur
         } = props;
         const defaultStyle = numberOfLines
             ? {
@@ -168,6 +171,8 @@ const TextInput = React.forwardRef<TextInputRN, TextInputProps>(
                     secureTextEntry={secureTextEntry}
                     onPressIn={onPressIn}
                     ref={ref}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
                 />
                 {suffix ? (
                     toggleUnits ? (

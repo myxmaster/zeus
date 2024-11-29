@@ -5,6 +5,8 @@ const userFriendlyErrors: any = {
         'error.torBootstrap',
     'Error: called `Result::unwrap()` on an `Err` value: BootStrapError("Timeout waiting for boostrap")':
         'error.torBootstrap',
+    'Error: {"code":2,"message":"verification failed: signature mismatch after caveat verification","details":[]}':
+        'error.invalidMacaroon',
     FAILURE_REASON_TIMEOUT: 'error.failureReasonTimeout',
     FAILURE_REASON_NO_ROUTE: 'error.failureReasonNoRoute',
     FAILURE_REASON_ERROR: 'error.failureReasonError',

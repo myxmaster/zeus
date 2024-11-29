@@ -96,6 +96,18 @@ describe('ErrorUtils', () => {
             ).toEqual(
                 'Error starting up Tor on your phone. Try restarting Zeus. If the problem persists consider using the Orbot app to connect to Tor, or using an alternative connection method like Lightning Node Connect or Tailscale.'
             );
+            expect(
+                errorToUserFriendly(
+                    Object.assign(new Error(), {
+                        message:
+                            'Error: {"code":2,"message":"verification failed: signature mismatch after caveat verification","details":[]}',
+                        name: 'test'
+                    }),
+                    false
+                )
+            ).toEqual(
+                "Invalid macaroon. Please check that you've entered the correct macaroon for this node."
+            );
         });
 
         it('Returns normal error message for unhandled errorContext', () => {
