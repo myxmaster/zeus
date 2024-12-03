@@ -1,4 +1,4 @@
-import { action } from 'mobx';
+import { action, runInAction } from 'mobx';
 import { LNURLPaySuccessAction } from 'js-lnurl';
 import EncryptedStorage from 'react-native-encrypted-storage';
 import { schnorr } from '@noble/curves/secp256k1';
@@ -57,7 +57,8 @@ export default class LnurlPayStore {
         this.nodeInfoStore = nodeInfoStore;
     }
 
-    reset = () => {
+    @action
+    public reset = () => {
         this.paymentHash = undefined;
         this.domain = undefined;
         this.successAction = undefined;
@@ -69,7 +70,6 @@ export default class LnurlPayStore {
         this.paymentRequest = undefined;
     };
 
-    @action
     public load = async (paymentHash: string): Promise<LnurlPayTransaction> => {
         let lnurlpaytx: any = await EncryptedStorage.getItem(
             'lnurlpay:' + paymentHash
@@ -87,7 +87,6 @@ export default class LnurlPayStore {
         return lnurlpaytx;
     };
 
-    @action
     public keep = async (
         paymentHash: string,
         domain: string,
@@ -127,44 +126,45 @@ export default class LnurlPayStore {
             JSON.stringify(metadataEntry)
         );
 
-        this.paymentHash = paymentHash;
-        this.successAction = successAction;
-        this.domain = domain;
+        runInAction(() => {
+            this.paymentHash = paymentHash;
+            this.successAction = successAction;
+            this.domain = domain;
 
-        if (pr) this.paymentRequest = pr;
+            if (pr) this.paymentRequest = pr;
 
-        // Zaplocker
-        if (user_pubkey) {
-            this.isZaplocker = true;
-            try {
-                this.zaplockerNpub = nip19.npubEncode(user_pubkey);
-            } catch (e) {}
+            // Zaplocker
+            if (user_pubkey) {
+                this.isZaplocker = true;
+                try {
+                    this.zaplockerNpub = nip19.npubEncode(user_pubkey);
+                } catch (e) {}
 
-            if (pmthash_sig) {
-                const pmtHashBytes = hexToBytes(pmthash_sig);
-                this.isPmtHashSigValid = schnorr.verify(
-                    pmtHashBytes,
-                    paymentHash,
-                    user_pubkey
-                );
+                if (pmthash_sig) {
+                    const pmtHashBytes = hexToBytes(pmthash_sig);
+                    this.isPmtHashSigValid = schnorr.verify(
+                        pmtHashBytes,
+                        paymentHash,
+                        user_pubkey
+                    );
+                }
+
+                if (relays && relays_sig) {
+                    this.relays = relays;
+                    const relaysBytes = hexToBytes(relays_sig);
+                    this.isRelaysSigValid = schnorr.verify(
+                        relaysBytes,
+                        hashjs
+                            .sha256()
+                            .update(JSON.stringify(relays))
+                            .digest('hex'),
+                        user_pubkey
+                    );
+                }
             }
-
-            if (relays && relays_sig) {
-                this.relays = relays;
-                const relaysBytes = hexToBytes(relays_sig);
-                this.isRelaysSigValid = schnorr.verify(
-                    relaysBytes,
-                    hashjs
-                        .sha256()
-                        .update(JSON.stringify(relays))
-                        .digest('hex'),
-                    user_pubkey
-                );
-            }
-        }
+        });
     };
 
-    @action
     public broadcastAttestation = async () => {
         const hash = this.paymentHash;
         const invoice = this.paymentRequest;

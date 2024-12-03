@@ -1,4 +1,4 @@
-import { action, observable } from 'mobx';
+import { action, observable, runInAction } from 'mobx';
 import EncryptedStorage from 'react-native-encrypted-storage';
 
 import SettingsStore from './SettingsStore';
@@ -56,7 +56,8 @@ export default class UTXOsStore {
         this.loadingAddressesError = '';
     };
 
-    getUtxosError = () => {
+    @action
+    private getUtxosError = () => {
         this.error = true;
         this.loading = false;
         this.utxos = [];
@@ -78,15 +79,18 @@ export default class UTXOsStore {
 
         BackendUtils.getUTXOs(data)
             .then((data: any) => {
-                this.loading = false;
-                const utxos = data.utxos || data.outputs;
-                this.utxos = utxos.map((utxo: any) => new Utxo(utxo));
-                this.error = false;
+                runInAction(() => {
+                    this.loading = false;
+                    const utxos = data.utxos || data.outputs;
+                    this.utxos = utxos.map((utxo: any) => new Utxo(utxo));
+                    this.error = false;
+                });
             })
             .catch((error: any) => {
-                // handle error
-                this.errorMsg = error.toString();
-                this.getUtxosError();
+                runInAction(() => {
+                    this.errorMsg = error.toString();
+                    this.getUtxosError();
+                });
             });
     };
 
@@ -149,8 +153,11 @@ export default class UTXOsStore {
             console.log('Error loading hidden account list:', error);
         }
 
-        this.errorMsg = '';
-        this.loadingAccounts = true;
+        runInAction(() => {
+            this.errorMsg = '';
+            this.loadingAccounts = true;
+        });
+
         return BackendUtils.listAccounts(data)
             .then(async (data: any) => {
                 const accounts: any = [];
@@ -180,15 +187,18 @@ export default class UTXOsStore {
                             });
                     }
                 }
-                this.accounts = accounts;
-                this.loadingAccounts = false;
-                this.error = false;
+                runInAction(() => {
+                    this.accounts = accounts;
+                    this.loadingAccounts = false;
+                    this.error = false;
+                });
                 return this.accounts;
             })
             .catch((error: any) => {
-                // handle error
-                this.errorMsg = error.toString();
-                this.getUtxosError();
+                runInAction(() => {
+                    this.errorMsg = error.toString();
+                    this.getUtxosError();
+                });
             });
     };
 
@@ -265,25 +275,30 @@ export default class UTXOsStore {
                             });
                     }
 
-                    this.importingAccount = false;
-                    this.error = false;
-                    this.success = true;
+                    runInAction(() => {
+                        this.importingAccount = false;
+                        this.error = false;
+                        this.success = true;
+                    });
                     return;
                 } else {
-                    this.importingAccount = false;
-                    this.error = false;
-                    this.accountToImport = response;
+                    runInAction(() => {
+                        this.importingAccount = false;
+                        this.error = false;
+                        this.accountToImport = response;
+                    });
                     return this.accountToImport;
                 }
             })
             .catch((error: any) => {
-                // handle error
-                this.errorMsg = error.toString();
-                this.success = false;
-                this.accountToImport = null;
-                this.importingAccount = false;
-                this.start_height = undefined;
-                this.getUtxosError();
+                runInAction(() => {
+                    this.errorMsg = error.toString();
+                    this.success = false;
+                    this.accountToImport = null;
+                    this.importingAccount = false;
+                    this.start_height = undefined;
+                    this.getUtxosError();
+                });
             });
     };
 
@@ -302,8 +317,10 @@ export default class UTXOsStore {
             })
             .catch((err: Error) => {
                 console.log('rescan err', err);
-                this.attemptingRescan = false;
-                this.rescanErrorMsg = err.toString();
+                runInAction(() => {
+                    this.attemptingRescan = false;
+                    this.rescanErrorMsg = err.toString();
+                });
                 return;
             });
     };
@@ -317,14 +334,18 @@ export default class UTXOsStore {
         return await new Promise((resolve, reject) => {
             BackendUtils.listAddresses()
                 .then((response: any) => {
-                    this.accountsWithAddresses =
-                        response.account_with_addresses;
-                    this.loadingAddresses = false;
+                    runInAction(() => {
+                        this.accountsWithAddresses =
+                            response.account_with_addresses;
+                        this.loadingAddresses = false;
+                    });
                     resolve(this.accountsWithAddresses);
                 })
                 .catch((err: Error) => {
-                    this.loadingAddressesError = err.toString();
-                    this.loadingAddresses = false;
+                    runInAction(() => {
+                        this.loadingAddressesError = err.toString();
+                        this.loadingAddresses = false;
+                    });
                     reject();
                 });
         });

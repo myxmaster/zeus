@@ -37,12 +37,11 @@ export default class UnitsStore {
         this.getUnits();
     }
 
-    getUnits = async () => {
+    private getUnits = async () => {
         const units = await EncryptedStorage.getItem(UNIT_KEY);
         if (units) this.units = units;
     };
 
-    @action
     public changeUnits = async () => {
         this.units = this.getNextUnit();
         await EncryptedStorage.setItem(UNIT_KEY, this.units);
@@ -66,12 +65,10 @@ export default class UnitsStore {
         }
     };
 
-    @action
-    public resetUnits = () => {
-        this.units = 'sats';
-    };
+    public resetUnits = () => (this.units = 'sats');
 
-    @action getUnformattedAmount = (
+    @action
+    public getUnformattedAmount = (
         value: string | number = 0,
         fixedUnits?: string
     ): ValueDisplayProps => {

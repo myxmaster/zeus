@@ -1,4 +1,4 @@
-import { action, observable } from 'mobx';
+import { action, observable, runInAction } from 'mobx';
 import EncryptedStorage from 'react-native-encrypted-storage';
 
 const NOTES_KEY = 'note-Keys';
@@ -33,7 +33,6 @@ export default class NotesStore {
         }
     };
 
-    @action
     public async loadNoteKeys() {
         console.log('Loading notes...');
         try {
@@ -41,14 +40,17 @@ export default class NotesStore {
             if (storedKeys) {
                 this.noteKeys = JSON.parse(storedKeys);
                 // Load all notes
-                await Promise.all(
+                const loadedNotes = await Promise.all(
                     this.noteKeys.map(async (key) => {
                         const note = await EncryptedStorage.getItem(key);
-                        if (note) {
-                            this.notes[key] = note;
-                        }
+                        return { key, note };
                     })
                 );
+                runInAction(() => {
+                    loadedNotes
+                        .filter((n) => n.note)
+                        .forEach(({ key, note }) => (this.notes[key] = note!));
+                });
             }
         } catch (error) {
             console.error(
@@ -58,7 +60,7 @@ export default class NotesStore {
         }
     }
 
-    writeNoteKeysToLocalStorage = async () => {
+    private writeNoteKeysToLocalStorage = async () => {
         try {
             await EncryptedStorage.setItem(
                 NOTES_KEY,
