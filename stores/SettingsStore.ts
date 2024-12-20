@@ -1210,6 +1210,7 @@ export default class SettingsStore {
         selectNodeOnStartup: false
     };
     @observable public posStatus: string = 'unselected';
+    @observable public posWasEnabled: boolean = false;
     @observable public loading = false;
     @observable btcPayError: string | null;
     @observable sponsorsError: string | null;
@@ -1225,6 +1226,7 @@ export default class SettingsStore {
     @observable implementation: Implementations;
     @observable certVerification: boolean | undefined;
     @observable public loggedIn = false;
+    @observable public comingFromLockscreen: boolean = false;
     @observable public connecting = true;
     @observable public lurkerExposed = false;
     // LNDHub
@@ -1660,6 +1662,13 @@ export default class SettingsStore {
             ...existingSettings,
             ...newSetting
         };
+
+        if (
+            newSetting.pos?.posEnabled &&
+            newSetting.pos.posEnabled !== PosEnabled.Disabled
+        ) {
+            this.posWasEnabled = true;
+        }
 
         await this.setSettings(JSON.stringify(newSettings));
         // ensure we get the enhanced settings set
