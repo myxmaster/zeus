@@ -1,43 +1,75 @@
-jest.mock('./AddressUtils', () => ({
-    processBIP21Uri: () => mockProcessedSendAddress,
-    isValidBitcoinAddress: () => mockIsValidBitcoinAddress,
-    isValidLightningPubKey: () => mockIsValidLightningPubKey,
-    isValidLightningPaymentRequest: () => mockIsValidLightningPaymentRequest
-}));
-jest.mock('./TorUtils', () => ({}));
-jest.mock('./BackendUtils', () => ({
-    supportsOnchainSends: () => mockSupportsOnchainSends
-}));
-jest.mock('../stores/Stores', () => ({
-    nodeInfoStore: { nodeInfo: {} },
-    invoicesStore: { getPayReq: jest.fn() }
-}));
-jest.mock('react-native-blob-util', () => ({}));
-jest.mock('react-native-encrypted-storage', () => ({}));
-jest.mock('react-native-fs', () => ({}));
-jest.mock('js-lnurl', () => ({
-    getParams: () => mockGetLnurlParams
-}));
 import stores from '../stores/Stores';
 import handleAnything from './handleAnything';
-let mockProcessedSendAddress = {};
+
+let mockProcessedSendAddress = jest.fn();
 let mockIsValidBitcoinAddress = false;
 let mockIsValidLightningPubKey = false;
 let mockIsValidLightningPaymentRequest = false;
 let mockSupportsOnchainSends = true;
 let mockGetLnurlParams = {};
 
+jest.mock('./AddressUtils', () => ({
+    processBIP21Uri: (...args: string[]) => mockProcessedSendAddress(...args),
+    isValidBitcoinAddress: () => mockIsValidBitcoinAddress,
+    isValidLightningPubKey: () => mockIsValidLightningPubKey,
+    isValidLightningPaymentRequest: () => mockIsValidLightningPaymentRequest,
+    isValidLightningOffer: () => false,
+    isValidLNDHubAddress: () => false,
+    processLNDHubAddress: () => ({}),
+    isValidNpub: () => false,
+    isPsbt: () => false,
+    isValidTxHex: () => false
+}));
+jest.mock('./TorUtils', () => ({}));
+jest.mock('./BackendUtils', () => ({
+    supportsOnchainSends: () => mockSupportsOnchainSends,
+    supportsAccounts: () => false
+}));
+jest.mock('../stores/Stores', () => ({
+    nodeInfoStore: { nodeInfo: {} },
+    invoicesStore: { getPayReq: jest.fn() },
+    settingsStore: { settings: { locale: 'en' } }
+}));
+jest.mock('react-native-blob-util', () => ({}));
+jest.mock('react-native-encrypted-storage', () => ({}));
+jest.mock('react-native-fs', () => ({}));
+jest.mock('js-lnurl', () => ({
+    getParams: () => mockGetLnurlParams,
+    findlnurl: () => null
+}));
+
 describe('handleAnything', () => {
     beforeEach(() => {
+        mockProcessedSendAddress.mockReset();
         mockIsValidBitcoinAddress = false;
         mockIsValidLightningPubKey = false;
         mockIsValidLightningPaymentRequest = false;
     });
 
+    describe('input sanitization', () => {
+        it('should trim whitespace before processing', async () => {
+            mockIsValidBitcoinAddress = true;
+            mockProcessedSendAddress.mockReturnValue({
+                value: 'some address',
+                amount: undefined,
+                lightning: undefined,
+                offer: undefined
+            });
+
+            await handleAnything('  some address  ');
+            expect(mockProcessedSendAddress).toHaveBeenCalledWith(
+                'some address'
+            );
+        });
+    });
+
     describe('bitcoin address', () => {
         it('should return Send screen if not from clipboard', async () => {
             const data = 'test data';
-            mockProcessedSendAddress = { value: 'some address', amount: 123 };
+            mockProcessedSendAddress.mockReturnValue({
+                value: 'some address',
+                amount: 123
+            });
             mockIsValidBitcoinAddress = true;
 
             const result = await handleAnything(data);
@@ -55,7 +87,10 @@ describe('handleAnything', () => {
 
         it('should return true if from clipboard', async () => {
             const data = 'test data';
-            mockProcessedSendAddress = { value: 'some address', amount: 123 };
+            mockProcessedSendAddress.mockReturnValue({
+                value: 'some address',
+                amount: 123
+            });
             mockIsValidBitcoinAddress = true;
 
             const result = await handleAnything(data, undefined, true);
@@ -67,7 +102,9 @@ describe('handleAnything', () => {
     describe('lightning public key', () => {
         it('should return Send screen if not from clipboard', async () => {
             const data = 'test data';
-            mockProcessedSendAddress = { value: 'some public key' };
+            mockProcessedSendAddress.mockReturnValue({
+                value: 'some public key'
+            });
             mockIsValidLightningPubKey = true;
 
             const result = await handleAnything(data);
@@ -84,7 +121,9 @@ describe('handleAnything', () => {
 
         it('should return true if from clipboard', async () => {
             const data = 'test data';
-            mockProcessedSendAddress = { value: 'some public key' };
+            mockProcessedSendAddress.mockReturnValue({
+                value: 'some public key'
+            });
             mockIsValidLightningPubKey = true;
 
             const result = await handleAnything(data, undefined, true);
@@ -96,7 +135,9 @@ describe('handleAnything', () => {
     describe('lightning payment request', () => {
         it('should return PaymentRequest screen and call getPayReq if not from clipboard', async () => {
             const data = 'test data';
-            mockProcessedSendAddress = { value: 'some payment request' };
+            mockProcessedSendAddress.mockReturnValue({
+                value: 'some payment request'
+            });
             mockIsValidLightningPaymentRequest = true;
 
             const result = await handleAnything(data);
@@ -109,7 +150,9 @@ describe('handleAnything', () => {
 
         it('should return true if from clipboard', async () => {
             const data = 'test data';
-            mockProcessedSendAddress = { value: 'some payment request' };
+            mockProcessedSendAddress.mockReturnValue({
+                value: 'some payment request'
+            });
             mockIsValidLightningPaymentRequest = true;
 
             const result = await handleAnything(data, undefined, true);
@@ -119,16 +162,14 @@ describe('handleAnything', () => {
     });
 
     describe('bitcoin URI with lnurl and backend not supporting on-chain sends', () => {
-        // test needs to be mocked out more as endpoint at https://ts.dergigi.com/BTC/UILNURL/pay/i/Wg7JV2ZFHs4cschM6bG5PT
-        // returns {"status":"ERROR","reason":"Invoice not in a valid payable state"} and throws on handleAnything.ts:54
         it('should return LnurlPay screen if not from clipboard', async () => {
             const data =
                 'bitcoin:BC1QUXCS7V556UTNUKU93HSZ7LHHFFLWN9NF2UTQ6N?pj=https://ts.dergigi.com/BTC/pj&lightning=LNURL1DP68GURN8GHJ7ARN9EJX2UN8D9NKJTNRDAKJ7SJ5GVH42J2VFE24YNP0WPSHJTMF9ATKWD622CE953JGWV6XXUMRDPXNVCJ8X4G9GF2CHDF';
-            mockProcessedSendAddress = {
+            mockProcessedSendAddress.mockReturnValue({
                 value: 'BC1QUXCS7V556UTNUKU93HSZ7LHHFFLWN9NF2UTQ6N',
                 lightning:
                     'LNURL1DP68GURN8GHJ7ARN9EJX2UN8D9NKJTNRDAKJ7SJ5GVH42J2VFE24YNP0WPSHJTMF9ATKWD622CE953JGWV6XXUMRDPXNVCJ8X4G9GF2CHDF'
-            };
+            });
             mockIsValidBitcoinAddress = true;
             mockSupportsOnchainSends = false;
             mockGetLnurlParams = {
@@ -153,11 +194,11 @@ describe('handleAnything', () => {
         it('should return true if from clipboard', async () => {
             const data =
                 'bitcoin:BC1QUXCS7V556UTNUKU93HSZ7LHHFFLWN9NF2UTQ6N?pj=https://ts.dergigi.com/BTC/pj&lightning=LNURL1DP68GURN8GHJ7ARN9EJX2UN8D9NKJTNRDAKJ7SJ5GVH42J2VFE24YNP0WPSHJTMF9ATKWD622CE953JGWV6XXUMRDPXNVCJ8X4G9GF2CHDF';
-            mockProcessedSendAddress = {
+            mockProcessedSendAddress.mockReturnValue({
                 value: 'BC1QUXCS7V556UTNUKU93HSZ7LHHFFLWN9NF2UTQ6N',
                 lightning:
                     'LNURL1DP68GURN8GHJ7ARN9EJX2UN8D9NKJTNRDAKJ7SJ5GVH42J2VFE24YNP0WPSHJTMF9ATKWD622CE953JGWV6XXUMRDPXNVCJ8X4G9GF2CHDF'
-            };
+            });
             mockIsValidBitcoinAddress = true;
             mockSupportsOnchainSends = false;
 
@@ -172,6 +213,14 @@ describe('handleAnything', () => {
             const data =
                 'bitcoin:BC1QYLH3U67J673H6Y6ALV70M0PL2YZ53TZHVXGG7U?amount=0.00001&label=sbddesign%3A%20For%20lunch%20Tuesday&message=For%20lunch%20Tuesday&lightning=LNBC10U1P3PJ257PP5YZTKWJCZ5FTL5LAXKAV23ZMZEKAW37ZK6KMV80PK4XAEV5QHTZ7QDPDWD3XGER9WD5KWM36YPRX7U3QD36KUCMGYP282ETNV3SHJCQZPGXQYZ5VQSP5USYC4LK9CHSFP53KVCNVQ456GANH60D89REYKDNGSMTJ6YW3NHVQ9QYYSSQJCEWM5CJWZ4A6RFJX77C490YCED6PEMK0UPKXHY89CMM7SCT66K8GNEANWYKZGDRWRFJE69H9U5U0W57RRCSYSAS7GADWMZXC8C6T0SPJAZUP6';
 
+            mockProcessedSendAddress.mockReturnValue({
+                value: 'BC1QYLH3U67J673H6Y6ALV70M0PL2YZ53TZHVXGG7U',
+                lightning:
+                    'LNBC10U1P3PJ257PP5YZTKWJCZ5FTL5LAXKAV23ZMZEKAW37ZK6KMV80PK4XAEV5QHTZ7QDPDWD3XGER9WD5KWM36YPRX7U3QD36KUCMGYP282ETNV3SHJCQZPGXQYZ5VQSP5USYC4LK9CHSFP53KVCNVQ456GANH60D89REYKDNGSMTJ6YW3NHVQ9QYYSSQJCEWM5CJWZ4A6RFJX77C490YCED6PEMK0UPKXHY89CMM7SCT66K8GNEANWYKZGDRWRFJE69H9U5U0W57RRCSYSAS7GADWMZXC8C6T0SPJAZUP6'
+            });
+            mockIsValidBitcoinAddress = true;
+            mockSupportsOnchainSends = false;
+
             const result = await handleAnything(data);
 
             expect(result).toEqual([
@@ -179,9 +228,9 @@ describe('handleAnything', () => {
                 {
                     amount: undefined,
                     lightning:
-                        'LNURL1DP68GURN8GHJ7ARN9EJX2UN8D9NKJTNRDAKJ7SJ5GVH42J2VFE24YNP0WPSHJTMF9ATKWD622CE953JGWV6XXUMRDPXNVCJ8X4G9GF2CHDF',
+                        'LNBC10U1P3PJ257PP5YZTKWJCZ5FTL5LAXKAV23ZMZEKAW37ZK6KMV80PK4XAEV5QHTZ7QDPDWD3XGER9WD5KWM36YPRX7U3QD36KUCMGYP282ETNV3SHJCQZPGXQYZ5VQSP5USYC4LK9CHSFP53KVCNVQ456GANH60D89REYKDNGSMTJ6YW3NHVQ9QYYSSQJCEWM5CJWZ4A6RFJX77C490YCED6PEMK0UPKXHY89CMM7SCT66K8GNEANWYKZGDRWRFJE69H9U5U0W57RRCSYSAS7GADWMZXC8C6T0SPJAZUP6',
                     offer: undefined,
-                    value: 'BC1QUXCS7V556UTNUKU93HSZ7LHHFFLWN9NF2UTQ6N'
+                    value: 'BC1QYLH3U67J673H6Y6ALV70M0PL2YZ53TZHVXGG7U'
                 }
             ]);
         });
@@ -189,11 +238,11 @@ describe('handleAnything', () => {
         it('should return true if from clipboard', async () => {
             const data =
                 'bitcoin:BC1QYLH3U67J673H6Y6ALV70M0PL2YZ53TZHVXGG7U?amount=0.00001&label=sbddesign%3A%20For%20lunch%20Tuesday&message=For%20lunch%20Tuesday&lightning=LNBC10U1P3PJ257PP5YZTKWJCZ5FTL5LAXKAV23ZMZEKAW37ZK6KMV80PK4XAEV5QHTZ7QDPDWD3XGER9WD5KWM36YPRX7U3QD36KUCMGYP282ETNV3SHJCQZPGXQYZ5VQSP5USYC4LK9CHSFP53KVCNVQ456GANH60D89REYKDNGSMTJ6YW3NHVQ9QYYSSQJCEWM5CJWZ4A6RFJX77C490YCED6PEMK0UPKXHY89CMM7SCT66K8GNEANWYKZGDRWRFJE69H9U5U0W57RRCSYSAS7GADWMZXC8C6T0SPJAZUP6';
-            mockProcessedSendAddress = {
+            mockProcessedSendAddress.mockReturnValue({
                 value: 'BC1QYLH3U67J673H6Y6ALV70M0PL2YZ53TZHVXGG7U',
                 lightning:
                     'LNBC10U1P3PJ257PP5YZTKWJCZ5FTL5LAXKAV23ZMZEKAW37ZK6KMV80PK4XAEV5QHTZ7QDPDWD3XGER9WD5KWM36YPRX7U3QD36KUCMGYP282ETNV3SHJCQZPGXQYZ5VQSP5USYC4LK9CHSFP53KVCNVQ456GANH60D89REYKDNGSMTJ6YW3NHVQ9QYYSSQJCEWM5CJWZ4A6RFJX77C490YCED6PEMK0UPKXHY89CMM7SCT66K8GNEANWYKZGDRWRFJE69H9U5U0W57RRCSYSAS7GADWMZXC8C6T0SPJAZUP6'
-            };
+            });
             mockIsValidBitcoinAddress = true;
             mockSupportsOnchainSends = false;
 
