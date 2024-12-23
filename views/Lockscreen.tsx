@@ -9,7 +9,7 @@ import {
     Text,
     View
 } from 'react-native';
-import { Route } from '@react-navigation/native';
+import { Route, CommonActions } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 import Button from '../components/Button';
@@ -84,17 +84,32 @@ export default class Lockscreen extends React.Component<
         };
     }
 
-    proceed = (navigationTarget?: string) => {
+    proceed = (
+        navigationTarget?: string,
+        triggerSettingsRefresh: boolean = false
+    ) => {
         const { SettingsStore, navigation } = this.props;
         if (navigationTarget) {
-            navigation.navigate(navigationTarget);
+            navigation.navigate(navigationTarget, { triggerSettingsRefresh });
         } else if (
             SettingsStore.settings.selectNodeOnStartup &&
             SettingsStore.initialStart
         ) {
-            navigation.navigate('Wallets');
+            navigation.navigate('Wallets', { triggerSettingsRefresh: true });
         } else {
-            navigation.pop();
+            const navigationState = navigation.getState();
+            navigation.dispatch(
+                CommonActions.reset({
+                    ...navigationState,
+                    index: 0,
+                    routes: [
+                        {
+                            ...navigationState.routes[0],
+                            params: { triggerSettingsRefresh }
+                        }
+                    ]
+                })
+            );
         }
     };
 
@@ -144,7 +159,7 @@ export default class Lockscreen extends React.Component<
             !deleteDuressPin
         ) {
             SettingsStore.setLoginStatus(true);
-            this.proceed('Wallet');
+            this.proceed('Wallet', true);
         }
 
         if (settings.authenticationAttempts) {
@@ -256,8 +271,7 @@ export default class Lockscreen extends React.Component<
                     setPosStatus('inactive');
                 }
                 this.resetAuthenticationAttempts();
-                SettingsStore.comingFromLockscreen = true;
-                this.proceed();
+                this.proceed(undefined, true);
             }
         } else if (
             (duressPassphrase && passphraseAttempt === duressPassphrase) ||

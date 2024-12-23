@@ -1226,7 +1226,6 @@ export default class SettingsStore {
     @observable implementation: Implementations;
     @observable certVerification: boolean | undefined;
     @observable public loggedIn = false;
-    @observable public comingFromLockscreen: boolean = false;
     @observable public connecting = true;
     @observable public lurkerExposed = false;
     // LNDHub
