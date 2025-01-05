@@ -1,44 +1,23 @@
 import { inject, observer } from 'mobx-react';
 import * as React from 'react';
-import {
-    AppState,
-    AppStateStatus,
-    NativeEventSubscription,
-    Platform,
-    StyleSheet,
-    Text,
-    View
-} from 'react-native';
-import { Route } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import Button from '../components/Button';
-import Header from '../components/Header';
 import Pin from '../components/Pin';
 import Screen from '../components/Screen';
 import { ErrorMessage } from '../components/SuccessErrorMessage';
 import TextInput from '../components/TextInput';
 import ShowHideToggle from '../components/ShowHideToggle';
 
-import SettingsStore, { PosEnabled } from '../stores/SettingsStore';
+import SettingsStore from '../stores/SettingsStore';
 
 import { verifyBiometry } from '../utils/BiometricUtils';
-import LinkingUtils from '../utils/LinkingUtils';
 import { localeString } from '../utils/LocaleUtils';
 import { themeColor } from '../utils/ThemeUtils';
 
 interface LockscreenProps {
-    navigation: StackNavigationProp<any, any>;
     SettingsStore: SettingsStore;
-    route: Route<
-        'Lockscreen',
-        {
-            modifySecurityScreen: string;
-            deletePin: boolean;
-            deleteDuressPin: boolean;
-            attemptAdminLogin: boolean;
-        }
-    >;
+    onAuthenticated?: () => void;
 }
 
 interface LockscreenState {
@@ -50,9 +29,6 @@ interface LockscreenState {
     duressPin: string;
     hidden: boolean;
     error: boolean;
-    modifySecurityScreen: string;
-    deletePin: boolean;
-    deleteDuressPin: boolean;
     authenticationAttempts: number;
 }
 
@@ -64,8 +40,6 @@ export default class Lockscreen extends React.Component<
     LockscreenProps,
     LockscreenState
 > {
-    private subscription: NativeEventSubscription;
-
     constructor(props: any) {
         super(props);
         this.state = {
@@ -77,50 +51,29 @@ export default class Lockscreen extends React.Component<
             duressPin: '',
             hidden: true,
             error: false,
-            modifySecurityScreen: '',
-            deletePin: false,
-            deleteDuressPin: false,
             authenticationAttempts: 0
         };
     }
 
-    proceed = (navigationTarget?: string) => {
-        const { SettingsStore, navigation } = this.props;
-        if (navigationTarget) {
-            navigation.navigate(navigationTarget);
-        } else if (
-            SettingsStore.settings.selectNodeOnStartup &&
-            SettingsStore.initialStart
-        ) {
-            navigation.navigate('Wallets');
-        } else {
-            navigation.pop();
-        }
-    };
-
     async UNSAFE_componentWillMount() {
-        const { SettingsStore, navigation, route } = this.props;
+        const { SettingsStore, onAuthenticated } = this.props;
         const { settings } = SettingsStore;
-        const {
-            modifySecurityScreen,
-            deletePin,
-            deleteDuressPin,
-            attemptAdminLogin
-        } = route.params ?? {};
 
-        const posEnabled: PosEnabled =
-            (settings && settings.pos && settings.pos.posEnabled) ||
-            PosEnabled.Disabled;
+        if (settings && settings.passphrase) {
+            this.setState({
+                passphrase: settings.passphrase,
+                duressPassphrase: settings.duressPassphrase || ''
+            });
+        } else if (settings && settings.pin) {
+            this.setState({
+                pin: settings.pin,
+                duressPin: settings.duressPin || ''
+            });
+        }
 
         const isBiometryConfigured = SettingsStore.isBiometryConfigured();
 
-        if (
-            isBiometryConfigured &&
-            !attemptAdminLogin &&
-            !deletePin &&
-            !deleteDuressPin &&
-            !modifySecurityScreen
-        ) {
+        if (isBiometryConfigured) {
             const isVerified = await verifyBiometry(
                 localeString('views.Lockscreen.Biometrics.prompt').replace(
                     'Zeus',
@@ -131,20 +84,9 @@ export default class Lockscreen extends React.Component<
             if (isVerified) {
                 this.resetAuthenticationAttempts();
                 SettingsStore.setLoginStatus(true);
-                this.proceed();
+                onAuthenticated?.();
                 return;
             }
-        }
-
-        if (
-            posEnabled !== PosEnabled.Disabled &&
-            SettingsStore.posStatus === 'active' &&
-            !attemptAdminLogin &&
-            !deletePin &&
-            !deleteDuressPin
-        ) {
-            SettingsStore.setLoginStatus(true);
-            this.proceed('Wallet');
         }
 
         if (settings.authenticationAttempts) {
@@ -152,187 +94,69 @@ export default class Lockscreen extends React.Component<
                 authenticationAttempts: settings.authenticationAttempts
             });
         }
-
-        if (modifySecurityScreen) {
-            this.setState({
-                modifySecurityScreen
-            });
-        } else if (deletePin) {
-            this.setState({
-                deletePin
-            });
-        } else if (deleteDuressPin) {
-            this.setState({
-                deleteDuressPin
-            });
-        }
-
-        if (settings && settings.passphrase) {
-            this.setState({ passphrase: settings.passphrase });
-            if (settings.duressPassphrase) {
-                this.setState({
-                    duressPassphrase: settings.duressPassphrase
-                });
-            }
-        } else if (settings && settings.pin) {
-            this.setState({ pin: settings.pin });
-            if (settings.duressPin) {
-                this.setState({
-                    duressPin: settings.duressPin
-                });
-            }
-        } else if (settings && settings.nodes && settings?.nodes?.length > 0) {
-            this.proceed();
-        } else {
-            navigation.navigate('IntroSplash');
-        }
     }
-
-    componentDidMount() {
-        this.subscription = AppState.addEventListener(
-            'change',
-            this.handleAppStateChange
-        );
-    }
-
-    componentWillUnmount() {
-        this.subscription?.remove();
-    }
-
-    handleAppStateChange = (nextAppState: AppStateStatus) => {
-        if (nextAppState === 'background') {
-            this.setState({ passphraseAttempt: '' });
-        }
-    };
 
     onInputLabelPressed = () => {
         this.setState({ hidden: !this.state.hidden });
     };
 
     onAttemptLogIn = async () => {
-        const { SettingsStore, navigation } = this.props;
+        const { SettingsStore, onAuthenticated } = this.props;
         const {
             passphrase,
             duressPassphrase,
             passphraseAttempt,
             pin,
             pinAttempt,
-            duressPin,
-            modifySecurityScreen,
-            deletePin,
-            deleteDuressPin
+            duressPin
         } = this.state;
-        const { updateSettings, getSettings, setPosStatus } = SettingsStore;
 
-        this.setState({
-            error: false
-        });
+        this.setState({ error: false });
 
         if (
             (passphraseAttempt && passphraseAttempt === passphrase) ||
             (pinAttempt && pinAttempt === pin)
         ) {
             SettingsStore.setLoginStatus(true);
-            if (
-                !(
-                    SettingsStore.settings.selectNodeOnStartup &&
-                    SettingsStore.initialStart
-                )
-            ) {
-                LinkingUtils.handleInitialUrl(navigation);
-            }
-            if (modifySecurityScreen) {
-                this.resetAuthenticationAttempts();
-                navigation.navigate(modifySecurityScreen);
-            } else if (deletePin) {
-                this.deletePin();
-            } else if (deleteDuressPin) {
-                this.deleteDuressPin();
-            } else {
-                setPosStatus('inactive');
-                this.resetAuthenticationAttempts();
-                this.proceed();
-            }
+            this.resetAuthenticationAttempts();
+            onAuthenticated?.();
         } else if (
             (duressPassphrase && passphraseAttempt === duressPassphrase) ||
             (duressPin && pinAttempt === duressPin)
         ) {
             SettingsStore.setLoginStatus(true);
-            if (
-                !(
-                    SettingsStore.settings.selectNodeOnStartup &&
-                    SettingsStore.initialStart
-                )
-            ) {
-                LinkingUtils.handleInitialUrl(navigation);
-            }
             this.deleteNodes();
         } else {
-            // need to fetch updated settings to get incremented value of
-            // authenticationAttempts, in case there are multiple failed attempts in a row
-            const updatedSettings = await getSettings();
-            let authenticationAttempts = 1;
-            if (updatedSettings?.authenticationAttempts) {
-                authenticationAttempts =
-                    updatedSettings.authenticationAttempts + 1;
-            }
+            await this.handleFailedAuthentication();
+        }
+    };
+
+    handleFailedAuthentication = async () => {
+        const { SettingsStore } = this.props;
+        const { getSettings, updateSettings } = SettingsStore;
+
+        const updatedSettings = await getSettings();
+        let authenticationAttempts = 1;
+        if (updatedSettings?.authenticationAttempts) {
+            authenticationAttempts = updatedSettings.authenticationAttempts + 1;
+        }
+
+        this.setState({ authenticationAttempts });
+
+        if (authenticationAttempts >= maxAuthenticationAttempts) {
+            this.deleteNodes();
+        } else {
+            await updateSettings({ authenticationAttempts });
             this.setState({
-                authenticationAttempts
+                error: true,
+                pinAttempt: ''
             });
-            if (authenticationAttempts >= maxAuthenticationAttempts) {
-                SettingsStore.setLoginStatus(true);
-                if (
-                    !(
-                        SettingsStore.settings.selectNodeOnStartup &&
-                        SettingsStore.initialStart
-                    )
-                ) {
-                    LinkingUtils.handleInitialUrl(navigation);
-                }
-                // wipe node configs, passwords, and pins
-                this.authenticationFailure();
-            } else {
-                await updateSettings({ authenticationAttempts }).then(() => {
-                    this.setState({
-                        error: true,
-                        pinAttempt: ''
-                    });
-                });
-            }
         }
     };
 
     onSubmitPin = (value: string) => {
         this.setState({ pinAttempt: value }, () => {
             this.onAttemptLogIn();
-        });
-    };
-
-    deletePin = () => {
-        const { SettingsStore, navigation } = this.props;
-        const { updateSettings } = SettingsStore;
-
-        // duress pin is also deleted when pin is deleted
-        // biometry is also disabled when pin is deleted
-        updateSettings({
-            pin: '',
-            duressPin: '',
-            authenticationAttempts: 0,
-            isBiometryEnabled: false
-        }).then(() => {
-            navigation.popTo('Security');
-        });
-    };
-
-    deleteDuressPin = () => {
-        const { SettingsStore, navigation } = this.props;
-        const { updateSettings } = SettingsStore;
-
-        updateSettings({
-            duressPin: '',
-            authenticationAttempts: 0
-        }).then(() => {
-            navigation.popTo('Security');
         });
     };
 
@@ -344,25 +168,6 @@ export default class Lockscreen extends React.Component<
             nodes: undefined,
             selectedNode: undefined,
             authenticationAttempts: 0
-        }).then(() => {
-            this.proceed('IntroSplash');
-        });
-    };
-
-    authenticationFailure = () => {
-        const { SettingsStore } = this.props;
-        const { updateSettings } = SettingsStore;
-
-        updateSettings({
-            nodes: undefined,
-            selectedNode: undefined,
-            passphrase: '',
-            duressPassphrase: '',
-            pin: '',
-            duressPin: '',
-            authenticationAttempts: 0
-        }).then(() => {
-            this.proceed('IntroSplash');
         });
     };
 
@@ -393,29 +198,13 @@ export default class Lockscreen extends React.Component<
     };
 
     render() {
-        const { navigation, SettingsStore, route } = this.props;
+        const { SettingsStore } = this.props;
         const { settings } = SettingsStore;
-        const {
-            passphrase,
-            passphraseAttempt,
-            pin,
-            hidden,
-            error,
-            modifySecurityScreen,
-            deletePin,
-            deleteDuressPin
-        } = this.state;
-
-        const { attemptAdminLogin } = route.params ?? {};
+        const { passphrase, passphraseAttempt, pin, hidden, error } =
+            this.state;
 
         return (
             <Screen>
-                {(!!modifySecurityScreen ||
-                    deletePin ||
-                    deleteDuressPin ||
-                    attemptAdminLogin) && (
-                    <Header leftComponent="Back" navigation={navigation} />
-                )}
                 {!!passphrase && (
                     <View
                         style={{
@@ -483,68 +272,45 @@ export default class Lockscreen extends React.Component<
                 {!!pin && (
                     <View style={styles.container}>
                         <View style={{ flex: 1 }}>
-                            <>
-                                {(!!modifySecurityScreen ||
-                                    deletePin ||
-                                    deleteDuressPin) && (
-                                    <View
-                                        style={{
-                                            flex: 2,
-                                            marginTop: 25,
-                                            marginBottom: 25
-                                        }}
-                                    >
-                                        {error && (
-                                            <ErrorMessage
-                                                message={this.generateErrorMessage()}
-                                            />
-                                        )}
-                                    </View>
-                                )}
-                                {!modifySecurityScreen &&
-                                    !deletePin &&
-                                    !deleteDuressPin && (
-                                        <View
-                                            style={{
-                                                flex: 2,
-                                                marginTop: 25,
-                                                marginBottom: 25
-                                            }}
-                                        >
-                                            {error && (
-                                                <ErrorMessage
-                                                    message={this.generateErrorMessage()}
-                                                />
-                                            )}
-                                        </View>
-                                    )}
-                                <Text
-                                    style={{
-                                        ...styles.mainText,
-                                        color: themeColor('text'),
-                                        flex: 1,
-                                        justifyContent: 'flex-end'
-                                    }}
-                                >
-                                    {localeString('views.Lockscreen.pin')}
-                                </Text>
-                                <View
-                                    style={{
-                                        flex: 8,
-                                        justifyContent: 'flex-end'
-                                    }}
-                                >
-                                    <Pin
-                                        onSubmit={this.onSubmitPin}
-                                        onPinChange={() =>
-                                            this.setState({ error: false })
-                                        }
-                                        hidePinLength={true}
-                                        pinLength={pin.length}
-                                        shuffle={settings.scramblePin}
+                            <View
+                                style={{
+                                    flex: 2,
+                                    marginTop: 25,
+                                    marginBottom: 25
+                                }}
+                            >
+                                {error && (
+                                    <ErrorMessage
+                                        message={this.generateErrorMessage()}
                                     />
-                                </View>
-                            </>
+                                )}
+                            </View>
+                            <Text
+                                style={{
+                                    ...styles.mainText,
+                                    color: themeColor('text'),
+                                    flex: 1,
+                                    justifyContent: 'flex-end'
+                                }}
+                            >
+                                {localeString('views.Lockscreen.pin')}
+                            </Text>
+                            <View
+                                style={{
+                                    flex: 8,
+                                    justifyContent: 'flex-end'
+                                }}
+                            >
+                                <Pin
+                                    onSubmit={this.onSubmitPin}
+                                    onPinChange={() =>
+                                        this.setState({ error: false })
+                                    }
+                                    hidePinLength={true}
+                                    pinLength={pin.length}
+                                    shuffle={settings.scramblePin}
+                                />
+                            </View>
                         </View>
                     </View>
                 )}

@@ -4,7 +4,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BackHandler, NativeEventSubscription, StatusBar } from 'react-native';
+import {
+    BackHandler,
+    NativeEventSubscription,
+    StatusBar,
+    View
+} from 'react-native';
 
 import Stores from './stores/Stores';
 import NavigationService from './NavigationService';
@@ -904,6 +909,48 @@ export default class App extends React.PureComponent {
                                     )}
                                 </Observer>
                             </SafeAreaView>
+                            <Observer>
+                                {() => (
+                                    <>
+                                        {Stores.settingsStore.loginRequired() && (
+                                            <View
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    bottom: 0,
+                                                    backgroundColor:
+                                                        themeColor(
+                                                            'background'
+                                                        ),
+                                                    zIndex: 1000
+                                                }}
+                                            >
+                                                <Lockscreen
+                                                    SettingsStore={
+                                                        Stores.settingsStore
+                                                    }
+                                                    onAuthenticated={() => {
+                                                        const pending =
+                                                            Stores.settingsStore
+                                                                .pendingNavigation;
+                                                        if (pending) {
+                                                            NavigationService.navigate(
+                                                                pending.route,
+                                                                pending.params
+                                                            );
+                                                            Stores.settingsStore.setPendingNavigation(
+                                                                null
+                                                            );
+                                                        }
+                                                    }}
+                                                />
+                                            </View>
+                                        )}
+                                    </>
+                                )}
+                            </Observer>
                             {/* @ts-ignore:next-line */}
                             <AlertModal />
                             {/* @ts-ignore:next-line */}

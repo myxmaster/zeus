@@ -1209,6 +1209,8 @@ export default class SettingsStore {
         },
         selectNodeOnStartup: false
     };
+    @observable pendingNavigation: { route: string; params?: any } | null =
+        null;
     @observable public posStatus: string = 'unselected';
     @observable public loading = false;
     @observable btcPayError: string | null;
@@ -1255,6 +1257,11 @@ export default class SettingsStore {
     public setInitialStart = (status: boolean) => {
         this.initialStart = status;
     };
+
+    @action
+    setPendingNavigation(navigation: { route: string; params?: any } | null) {
+        this.pendingNavigation = navigation;
+    }
 
     @action
     public changeLocale = (locale: string) => {

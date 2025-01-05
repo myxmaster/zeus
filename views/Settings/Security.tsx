@@ -246,26 +246,34 @@ export default class Security extends React.Component<
                 [
                     {
                         title: localeString('general.ok'),
-                        callback: () =>
-                            navigation.navigate('Lockscreen', {
-                                deletePin: true
-                            })
+                        callback: () => {
+                            SettingsStore.setPendingNavigation({
+                                route: 'Security',
+                                params: { deletePin: true }
+                            });
+                            SettingsStore.setLoginStatus(false);
+                        }
                     }
                 ]
             );
         } else if (item.action === 'DeletePin') {
-            navigation.navigate('Lockscreen', {
-                deletePin: true
+            SettingsStore.setPendingNavigation({
+                route: 'Security',
+                params: { deletePin: true }
             });
+            SettingsStore.setLoginStatus(false);
         } else if (item.action === 'DeleteDuressPin') {
-            navigation.navigate('Lockscreen', {
-                deleteDuressPin: true
+            SettingsStore.setPendingNavigation({
+                route: 'Security',
+                params: { deleteDuressPin: true }
             });
+            SettingsStore.setLoginStatus(false);
         } else {
             // if we already have a pin/password set, make user authenticate in order to change
-            navigation.navigate('Lockscreen', {
-                modifySecurityScreen: item.screen
+            SettingsStore.setPendingNavigation({
+                route: item.screen
             });
+            SettingsStore.setLoginStatus(false);
         }
     };
 

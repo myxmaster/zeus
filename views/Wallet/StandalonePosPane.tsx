@@ -33,7 +33,6 @@ import SettingsStore from '../../stores/SettingsStore';
 import InventoryStore from '../../stores/InventoryStore';
 
 import { localeString } from '../../utils/LocaleUtils';
-import { protectedNavigation } from '../../utils/NavigationUtils';
 import { themeColor } from '../../utils/ThemeUtils';
 import { SATS_PER_BTC } from '../../utils/UnitsUtils';
 
@@ -580,7 +579,10 @@ export default class StandalonePosPane extends React.PureComponent<
                             alignItems: 'center'
                         }}
                         onPress={() => {
-                            protectedNavigation(navigation, 'Menu');
+                            this.props.SettingsStore!.setPendingNavigation({
+                                route: 'Menu'
+                            });
+                            this.props.SettingsStore!.setLoginStatus(false);
                         }}
                         adaptiveWidth
                     />

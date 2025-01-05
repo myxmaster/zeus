@@ -106,13 +106,20 @@ const ActivityButton = ({
     </TouchableOpacity>
 );
 
-const TempleButton = ({
-    navigation
-}: {
-    navigation: StackNavigationProp<any, any>;
-}) => (
+const TempleButton = () => (
     <TouchableOpacity
-        onPress={() => protectedNavigation(navigation, 'Wallet', true)}
+        onPress={() => {
+            try {
+                stores.settingsStore.setPendingNavigation({
+                    route: 'Wallet',
+                    params: { returnToBalance: true }
+                });
+                stores.settingsStore.setLoginStatus(false);
+                stores.settingsStore.setPosStatus('inactive');
+            } catch (e) {
+                console.log('Navigation state update error:', e);
+            }
+        }}
     >
         <Temple
             fill={themeColor('text')}

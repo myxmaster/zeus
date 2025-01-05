@@ -236,7 +236,7 @@ export default class Wallet extends React.Component<WalletProps, WalletState> {
         ) {
             SettingsStore.setLoginStatus(false);
         } else if (nextAppState === 'active' && SettingsStore.loginRequired()) {
-            this.props.navigation.navigate('Lockscreen');
+            SettingsStore.setLoginStatus(false);
         }
     };
 
@@ -262,27 +262,25 @@ export default class Wallet extends React.Component<WalletProps, WalletState> {
                 settings?.pos?.posEnabled &&
                 settings.pos.posEnabled !== PosEnabled.Disabled;
 
-            if (!loginRequired) SettingsStore.setLoginStatus(true);
-
-            if (posEnabled && posStatus === 'inactive' && loginRequired) {
-                navigation.navigate('Lockscreen');
-            } else if (posEnabled && posStatus === 'unselected') {
-                setPosStatus('active');
+            if (settings && settings.nodes && settings.nodes.length > 0) {
+                if (!loginRequired) {
+                    SettingsStore.setLoginStatus(true);
+                }
+                if (settings.selectNodeOnStartup && initialStart) {
+                    navigation.navigate('Wallets');
+                }
                 if (!this.state.unlocked) {
                     this.startListeners();
                     this.setState({ unlocked: true });
                 }
-                this.fetchData();
-            } else if (loginRequired) {
-                navigation.navigate('Lockscreen');
-            } else if (
-                settings &&
-                settings.nodes &&
-                settings.nodes.length > 0
-            ) {
-                if (settings.selectNodeOnStartup && initialStart) {
-                    navigation.navigate('Wallets');
+                if (settings.pos?.posEnabled !== PosEnabled.Disabled) {
+                    setPosStatus('inactive');
                 }
+                this.fetchData();
+            } else if (posEnabled && posStatus === 'inactive') {
+                SettingsStore.setLoginStatus(false);
+            } else if (posEnabled && posStatus === 'unselected') {
+                setPosStatus('active');
                 if (!this.state.unlocked) {
                     this.startListeners();
                     this.setState({ unlocked: true });

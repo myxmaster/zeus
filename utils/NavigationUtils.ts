@@ -8,14 +8,14 @@ const protectedNavigation = async (
     disactivatePOS?: boolean,
     routeParams?: any
 ) => {
-    const { posStatus, settings, setPosStatus } = stores.settingsStore;
+    const { posStatus, settings, setPosStatus, setPendingNavigation } =
+        stores.settingsStore;
     const loginRequired = settings && (settings.passphrase || settings.pin);
     const posEnabled = posStatus === 'active';
 
     if (posEnabled && loginRequired) {
-        navigation.navigate('Lockscreen', {
-            attemptAdminLogin: true
-        });
+        setPendingNavigation({ route, params: routeParams });
+        stores.settingsStore.setLoginStatus(false);
     } else {
         if (disactivatePOS) setPosStatus('inactive');
         navigation.navigate(route, routeParams);
