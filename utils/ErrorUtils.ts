@@ -5,8 +5,9 @@ const userFriendlyErrors: any = {
         'error.torBootstrap',
     'Error: called `Result::unwrap()` on an `Err` value: BootStrapError("Timeout waiting for boostrap")':
         'error.torBootstrap',
-    'Error: Failed to connect to': 'error.nodeConnectError',
+    'Error: Failed to connect to': 'error.nodeConnectError', // not needed anymore?
     'Error: Unable to resolve host': 'error.nodeConnectError',
+    'Error: Request timeout': 'error.nodeConnectError',
     FAILURE_REASON_TIMEOUT: 'error.failureReasonTimeout',
     FAILURE_REASON_NO_ROUTE: 'error.failureReasonNoRoute',
     FAILURE_REASON_ERROR: 'error.failureReasonError',
@@ -22,6 +23,10 @@ const pascalCase = /^[A-Z](([a-z0-9]+[A-Z]?)*)$/;
 const errorToUserFriendly = (error: Error, errorContext?: string[]) => {
     let errorMessage: string = error?.message;
     let errorObject: any;
+
+    console.log('ErrorUtils: Raw error:', error);
+    console.log('ErrorUtils: Error toString:', error.toString());
+    console.log('ErrorUtils: Error message:', errorMessage);
 
     try {
         errorObject = JSON.parse(errorMessage || error.toString());
@@ -47,7 +52,7 @@ const errorToUserFriendly = (error: Error, errorContext?: string[]) => {
     }
 
     const matchingPattern = Object.keys(userFriendlyErrors).find((pattern) =>
-        errorMsg.includes(pattern)
+        pattern === 'Error' ? errorMsg === pattern : errorMsg.includes(pattern)
     );
 
     let localeKey = matchingPattern
