@@ -249,7 +249,7 @@ export default class Nodes extends React.Component<NodesProps, NodesState> {
                                                 currentImplementation ===
                                                 'lightning-node-connect'
                                             ) {
-                                                BackendUtils.disconnect();
+                                                await BackendUtils.disconnect();
                                             }
                                             await updateSettings({
                                                 nodes,
