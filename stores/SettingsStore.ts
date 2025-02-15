@@ -1222,6 +1222,7 @@ export default class SettingsStore {
     };
     @observable public posStatus: string = 'unselected';
     @observable public loading = false;
+    @observable public settingsUpdateInProgress: boolean = false;
     @observable btcPayError: string | null;
     @observable sponsorsError: string | null;
     @observable olympians: Array<any>;
@@ -1471,6 +1472,7 @@ export default class SettingsStore {
     }
 
     public updateSettings = async (newSetting: any) => {
+        this.settingsUpdateInProgress = true;
         const existingSettings = await this.getSettings();
         const newSettings = {
             ...existingSettings,
@@ -1480,6 +1482,7 @@ export default class SettingsStore {
         await this.setSettings(newSettings);
         // ensure we get the enhanced settings set
         const settings = await this.getSettings(true);
+        this.settingsUpdateInProgress = false;
         return settings;
     };
 

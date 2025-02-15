@@ -142,6 +142,9 @@ export default class LightningAddressSettings extends React.Component<
                             >
                                 <Switch
                                     value={automaticallyAccept}
+                                    disabled={
+                                        SettingsStore.settingsUpdateInProgress
+                                    }
                                     onValueChange={async () => {
                                         this.setState({
                                             automaticallyAccept:
@@ -180,7 +183,10 @@ export default class LightningAddressSettings extends React.Component<
                                     });
                                 }}
                                 values={AUTOMATIC_ATTESTATION_KEYS}
-                                disabled={!automaticallyAccept}
+                                disabled={
+                                    !automaticallyAccept ||
+                                    SettingsStore.settingsUpdateInProgress
+                                }
                             />
                         </View>
                         <View
@@ -213,6 +219,9 @@ export default class LightningAddressSettings extends React.Component<
                             >
                                 <Switch
                                     value={routeHints}
+                                    disabled={
+                                        SettingsStore.settingsUpdateInProgress
+                                    }
                                     onValueChange={async () => {
                                         this.setState({
                                             routeHints: !routeHints
@@ -251,6 +260,9 @@ export default class LightningAddressSettings extends React.Component<
                             >
                                 <Switch
                                     value={allowComments}
+                                    disabled={
+                                        SettingsStore.settingsUpdateInProgress
+                                    }
                                     onValueChange={async () => {
                                         try {
                                             await update({
@@ -297,6 +309,9 @@ export default class LightningAddressSettings extends React.Component<
                                     } catch (e) {}
                                 }}
                                 values={NOTIFICATIONS_PREF_KEYS}
+                                disabled={
+                                    SettingsStore.settingsUpdateInProgress
+                                }
                             />
                         </View>
                         <ListItem
