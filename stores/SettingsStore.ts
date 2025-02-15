@@ -1487,6 +1487,8 @@ export default class SettingsStore {
         }
 
         await this.setSettings(newSettings);
+        this.triggerSettingsRefresh = true;
+
         // ensure we get the enhanced settings set
         const settings = await this.getSettings(true);
         return settings;
